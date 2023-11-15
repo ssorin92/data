@@ -30,7 +30,7 @@ def create_tables():
 create_tables()
 
 
-@application.route('/get_statistics')
+@application.route('/')
 def get_statistics():
     expenses = Expense.query.all()
 
