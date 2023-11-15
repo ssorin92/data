@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Expense Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            text-align: center; /* Center-align column headers */
+        }
+
+        /* Style for the "balance-info" element */
+        #balance-info {
+            position: absolute;
+            bottom: 10px; /* Adjust the bottom position to your preference */
+            left: 50%; /* Horizontally center the element */
+            transform: translateX(-50%); /* Center horizontally with transform */
+            font-size: 50px; /* Set the font size to 20px */
+        }
+        /* Style for the "Add Entry" button */
+        #add-entry-button {
+            padding: 15px 30px; /* Increase padding to make it bigger */
+            font-size: 24px; /* Increase font size to make it bigger */
+        }
+
+        /* Style for the pop-up form */
+        .popup-form {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f2f2f2;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .popup-close {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button id="add-entry-button" onclick="openPopupForm()">Add Entry</button>
+
+    <!-- Pop-up form -->
+    <div id="popup-form" class="popup-form">
+        <div class="popup-header">
+            <h2>Add New Entry</h2>
+            <span class="popup-close" onclick="closePopupForm()">x</span>
+        </div>
+        <form id="add-form" method="post" action="{{ url_for('add_data') }}">
+            <label for="Date">Date:</label>
+            <input type="date" id="Date" name="Date" required><br>
+
+            <label for="Details">Details:</label>
+            <input type="text" id="Details" name="Details" required><br>
+
+            <label for="In">In:</label>
+            <input type="number" id="In" name="In" required><br>
+
+            <label for="Out">Out:</label>
+            <input type="number" id="Out" name="Out" required><br>
+
+            <!-- <button type="button" onclick="addEntry()">Add Entry</button> -->
+            <button type="submit">Add Entry</button>
+        </form>
+    </div>
+
+    <h2>Expense Data</h2>
+    <table id="expense-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Details</th>
+                <th>In</th>
+                <th>Out</th>
+                <th>Actions</th> <!-- Removed the Balance column -->
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in data %}
+            <tr data-id="{{ entry.id }}">
+                <td>{{ entry.date }}</td>
+                <td>{{ entry.details }}</td>
+                <td>{{ entry.income|int }}</td>
+                <td>{{ entry.outcome|int }}</td>
+                <td>
+                    <a href="#" onclick="deleteEntry(this)">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Display the balance here -->
+    <p id="balance-info">Balance: {{ total_balance }}</p>
+
+
+    <script>
+        function openPopupForm() {
+            var popupForm = document.getElementById("popup-form");
+            popupForm.style.display = "block";
+        }
+    
+        function closePopupForm() {
+            var popupForm = document.getElementById("popup-form");
+            popupForm.style.display = "none";
+        }
+    
+        function updateTable(entry) {
+            // Create a new row
+            var table = document.getElementById("expense-table").getElementsByTagName('tbody')[0];
+            var row = table.insertRow(table.rows.length);
+    
+            // Insert data into the row
+            var cell1 = row.insertCell(0);
+            cell1.innerHTML = entry.Date;
+            var cell2 = row.insertCell(1);
+            cell2.innerHTML = entry.Details;
+            var cell3 = row.insertCell(2);
+            cell3.innerHTML = entry.In;
+            var cell4 = row.insertCell(3);
+            cell4.innerHTML = entry.Out;
+            var cell5 = row.insertCell(4);
+            cell5.innerHTML = '<a href="#" onclick="deleteEntry(this)">Delete</a>';
+        }
+    
+        function addEntry() {
+            // Get form values
+            var Date = document.getElementById("Date").value;
+            var Details = document.getElementById("Details").value;
+            var In = Number(document.getElementById("In").value) || 0;
+            var Out = Number(document.getElementById("Out").value) || 0;
+            var currentBalance = parseFloat(document.getElementById("balance-info").textContent.split(" ")[1]);
+
+            // Calculate the new balance
+            var newBalance = currentBalance + In - Out;
+
+            // Create a new entry object
+            var entry = { Date, Details, In, Out };
+
+            // Update the balance information
+            document.getElementById("balance-info").textContent = "Balance: " + newBalance;
+
+            // Send the data to the server using AJAX
+            fetch("{{ url_for('add_data') }}", {
+                method: "POST",
+                body: JSON.stringify(entry),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            })
+            .then((response) => response.json())
+            .then((data) => {
+                // Do nothing here; the balance is already updated
+            })
+            .catch((error) => {
+                console.error("Error adding data:", error);
+            });
+
+            // Clear the form and hide the pop-up form
+            document.getElementById("add-form").reset();
+            closePopupForm();
+        }
+
+
+
+        function deleteEntry(target) {
+            var row;
+            if (target instanceof HTMLAnchorElement) {
+                // If the target is an anchor (Delete button), find the closest row
+                row = target.closest('tr');
+            } else {
+                return; // Do nothing if the target is not recognized
+            }
+
+            var entryId = row.dataset.id;
+
+
+            // Send an AJAX request to delete the entry
+            fetch(`/delete/${entryId}`, {
+                method: "GET",
+            })
+            .then((response) => response.json())
+            .then((data) => {
+                // Check if the deletion was successful
+                if (data.message === "Entry deleted successfully") {
+                    // Remove the row from the table
+                    row.parentNode.removeChild(row);
+
+                    // Update the balance after deleting the entry
+                    updateBalance();
+
+                } else {
+                    console.error("Error deleting entry:", data.message);
+                }
+            })
+            .catch((error) => {
+                console.error("Error deleting data:", error);
+            });
+        }
+
+
+
+
+        // Function to update the balance after deleting an entry
+        function updateBalance() {
+            var rows = document.querySelectorAll("#expense-table tbody tr");
+            var newBalance = 0;
+
+            // Calculate the new balance by iterating over the rows
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var income = parseFloat(row.cells[2].textContent) || 0;
+                var outcome = parseFloat(row.cells[3].textContent) || 0;
+                newBalance += income - outcome;
+            }
+
+            // Update the balance information
+            document.getElementById("balance-info").textContent = "Balance: " + newBalance;
+        }
+    </script>
+</body>
+</html>
