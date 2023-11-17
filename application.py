@@ -30,7 +30,7 @@ def create_tables():
 create_tables()
 
 
-@application.route('/')
+@application.route('')
 def get_statistics():
     expenses = Expense.query.all()
 
@@ -40,7 +40,7 @@ def get_statistics():
     return render_template('statistics1.html', data=expenses, total_balance=total_balance)
 
 
-@application.route('/', methods=['POST'])
+@application.route('', methods=['POST'])
 def add_data():
     # Get data from the form
     date = request.form.get('Date')
